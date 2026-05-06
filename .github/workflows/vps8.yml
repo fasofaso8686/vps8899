@@ -8,6 +8,13 @@ on:
 jobs:
   run-renew:
     runs-on: ubuntu-latest
+    # ==========================================
+    # 核心：使用矩阵配置多账号，想加几个账号就在下面的方括号里写几
+    # ==========================================
+    strategy:
+      matrix:
+        account_index: [1, 2] 
+      fail-fast: false # 允许其中一个账号失败时不影响其他账号运行
 
     steps:
       - name: Checkout repository
@@ -48,13 +55,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install DrissionPage xvfbwrapper requests SpeechRecognition pydub
 
+      # ==========================================
+      # 核心修改点：利用 context 动态将 secrets 的内容赋值给脚本
+      # ==========================================
       - name: Run Renew Script
         env:
           RENEW_URL: ${{ secrets.RENEW_URL }}
           TG_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-          VPS8_USERNAME: ${{ secrets.VPS8_USERNAME }}
-          VPS8_PASSWORD: ${{ secrets.VPS8_PASSWORD }}
+          # 关键：动态拼接出秘密的名称，如 ${{ secrets.VPS8_USERNAME_1 }}
+          VPS8_USERNAME: ${{ secrets[format('VPS8_USERNAME_{0}', matrix.account_index)] }}
+          VPS8_PASSWORD: ${{ secrets[format('VPS8_PASSWORD_{0}', matrix.account_index)] }}
           PROXY: http://127.0.0.1:1080
         run: python main.py
 
@@ -62,6 +73,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: debug-screenshots
+          name: debug-screenshots-account-${{ matrix.account_index }}
           path: ./*.html
           retention-days: 5
